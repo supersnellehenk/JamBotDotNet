@@ -34,6 +34,11 @@ namespace JamBotDotNet
 
         public async Task MainAsync()
         {
+            Console.CancelKeyPress += (sender, e) =>
+            {
+                _client.LogoutAsync().GetAwaiter().GetResult();
+                _client.StopAsync().GetAwaiter().GetResult();
+            };
             DotEnv.Load();
             // You should dispose a service provider created using ASP.NET
             // when you are finished using it, at the end of your app's lifetime.

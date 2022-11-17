@@ -24,6 +24,8 @@ namespace JamBotDotNet.Modules
         public PictureService PictureService { get; set; }
 
         private AudioOutStream? _audioOutStream;
+        
+        private CancellationTokenSource _cancellationTokenSource = new();
 
         [SlashCommand("ping", "Ping the bot.")]
         public async Task PingAsync()
@@ -65,7 +67,7 @@ namespace JamBotDotNet.Modules
 
         // The command's Run Mode MUST be set to RunMode.Async, otherwise, being connected to a voice channel will block the gateway thread.
         [SlashCommand("join", "Join your connected voice channel.", runMode: Discord.Interactions.RunMode.Async)]
-        public async Task JoinChannel(IVoiceChannel channel = null)
+        public async Task Join(IVoiceChannel channel = null)
         {
             // Get the audio channel
             channel = channel ?? (Context.User as IGuildUser)?.VoiceChannel;
@@ -77,16 +79,21 @@ namespace JamBotDotNet.Modules
             }
 
             // For the next step with transmitting audio, you would want to pass this Audio Client in to a service.
-            var audioClient = await channel.ConnectAsync(selfDeaf: true);
-            await audioClient.SetSpeakingAsync(true);
+            await channel.ConnectAsync(selfDeaf: true);
             await RespondAsync($"Connected to `{channel}`!");
+        }
+
+        private async Task JoinChannel(IVoiceChannel channel = null)
+        {
+            channel = channel ?? (Context.User as IGuildUser)?.VoiceChannel;
+            await channel.ConnectAsync(selfDeaf: true);
         }
         
         [SlashCommand("leave", "Leave the voice channel.", runMode: Discord.Interactions.RunMode.Async)]
         public async Task LeaveChannel()
         {
             var audioClient = Context.Guild.AudioClient;
-            if (audioClient == null)
+            if (audioClient is not {ConnectionState: ConnectionState.Connected})
             {
                 await RespondAsync("I'm not connected to a voice channel!");
                 return;
@@ -100,20 +107,26 @@ namespace JamBotDotNet.Modules
         public async Task StopSong()
         {
             var audioClient = Context.Guild.AudioClient;
-            if (audioClient == null)
+            if (audioClient is not {ConnectionState: ConnectionState.Connected})
             {
                 await RespondAsync("I'm not connected to a voice channel!");
                 return;
             }
 
-            _audioOutStream?.FlushAsync().Dispose();
+            _cancellationTokenSource.Cancel();
             await RespondAsync("Stopped.");
         }
 
         [SlashCommand("play", "Play a song from YouTube.", runMode: Discord.Interactions.RunMode.Async)]
         public async Task PlaySong([Remainder] string query)
         {
-
+            // TODO: implement queue
+            if (Context.User is not IGuildUser guildUser || guildUser.VoiceChannel is null)
+            {
+                await RespondAsync("You must be in a voice channel to use this command.", ephemeral: true);
+                return;
+            }
+            
             await DeferAsync();
             
             // Todo: split
@@ -133,25 +146,25 @@ namespace JamBotDotNet.Modules
                 videoId = videos[0].Id;
             }
             
-            var audioClient = Context.Guild.AudioClient;
-            if (audioClient == null)
-            {
-                await RespondAsync("I'm not connected to a voice channel!");
-                return;
-            }
-
-
             var videoMetadata = await youtube.Videos.GetAsync(videoId);
             var streamManifest = await youtube.Videos.Streams.GetManifestAsync(videoId);
             var streamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
             var audioStream = await youtube.Videos.Streams.GetAsync(streamInfo);
+            
+            var audioClient = Context.Guild.AudioClient;
+            if (audioClient is not {ConnectionState: ConnectionState.Connected})
+            {
+                await JoinChannel();
+            }
 
-            TransmitAudioAsync(audioClient, audioStream);
-
+            audioClient = Context.Guild.AudioClient;
+            
             var embed = new EmbedBuilder()
                 .WithTitle($"{videoMetadata.Author} - {videoMetadata.Title} - {videoMetadata.Id}")
                 .WithImageUrl(videoMetadata.Thumbnails.GetWithHighestResolution().Url);
             await ModifyOriginalResponseAsync(msg => msg.Embed = embed.Build());
+
+            await TransmitAudioAsync(audioClient, audioStream);
         }
 
         private async Task TransmitAudioAsync(IAudioClient client, Stream audioStream)
@@ -163,19 +176,9 @@ namespace JamBotDotNet.Modules
                 .WithStandardOutputPipe(PipeTarget.ToStream(memoryStream))
                 .ExecuteAsync();
             
-            if (_audioOutStream == null)
-            {
-                _audioOutStream = client.CreatePCMStream(AudioApplication.Music);
-            }
+            _audioOutStream ??= client.CreatePCMStream(AudioApplication.Music);
 
-            try
-            {
-                await _audioOutStream.WriteAsync(memoryStream.ToArray().AsMemory(0, (int)memoryStream.Length));
-            }
-            finally
-            {
-                await _audioOutStream.FlushAsync();
-            }
+            await _audioOutStream.WriteAsync(memoryStream.ToArray().AsMemory(0, (int)memoryStream.Length), _cancellationTokenSource.Token);
         }
     }
 }

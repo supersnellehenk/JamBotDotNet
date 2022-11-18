@@ -25,7 +25,7 @@ namespace JamBotDotNet.Modules
 
         private AudioOutStream? _audioOutStream;
         
-        private CancellationTokenSource _cancellationTokenSource = new();
+        private CancellationTokenSource? _cancellationTokenSource;
 
         [SlashCommand("ping", "Ping the bot.")]
         public async Task PingAsync()
@@ -99,6 +99,7 @@ namespace JamBotDotNet.Modules
                 return;
             }
 
+            _cancellationTokenSource?.Cancel();
             await audioClient.StopAsync();
             await RespondAsync("Disconnected.");
         }
@@ -113,7 +114,7 @@ namespace JamBotDotNet.Modules
                 return;
             }
 
-            _cancellationTokenSource.Cancel();
+            _cancellationTokenSource?.Cancel();
             await RespondAsync("Stopped.");
         }
 
@@ -175,7 +176,8 @@ namespace JamBotDotNet.Modules
                 .WithStandardInputPipe(PipeSource.FromStream(audioStream))
                 .WithStandardOutputPipe(PipeTarget.ToStream(memoryStream))
                 .ExecuteAsync();
-            
+
+            _cancellationTokenSource ??= new CancellationTokenSource();
             _audioOutStream ??= client.CreatePCMStream(AudioApplication.Music);
 
             await _audioOutStream.WriteAsync(memoryStream.ToArray().AsMemory(0, (int)memoryStream.Length), _cancellationTokenSource.Token);

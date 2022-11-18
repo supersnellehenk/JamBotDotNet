@@ -13,6 +13,7 @@ using YoutubeExplode.Videos.Streams;
 using ContextType = Discord.Commands.ContextType;
 using System;
 using System.Text.RegularExpressions;
+using JamBotDotNet.Models;
 using YoutubeExplode.Videos;
 
 namespace JamBotDotNet.Modules
@@ -27,7 +28,9 @@ namespace JamBotDotNet.Modules
         
         private CancellationTokenSource? _cancellationTokenSource;
         
-        public AudioModule _audioModule { get; set; }
+        public AudioService audioService { get; set; }
+        
+        public QueueService queueService { get; set; }
 
         [SlashCommand("ping", "Ping the bot.")]
         public async Task PingAsync()
@@ -116,7 +119,8 @@ namespace JamBotDotNet.Modules
                 return;
             }
 
-            _audioModule.StopTransmitting();
+            audioService.StopTransmitting();
+            queueService.DequeueFirst();
             await RespondAsync("Stopped.");
         }
 
@@ -153,7 +157,6 @@ namespace JamBotDotNet.Modules
             var videoMetadata = await youtube.Videos.GetAsync(videoId);
             var streamManifest = await youtube.Videos.Streams.GetManifestAsync(videoId);
             var streamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
-            var audioStream = await youtube.Videos.Streams.GetAsync(streamInfo);
             
             var audioClient = Context.Guild.AudioClient;
             if (audioClient is not {ConnectionState: ConnectionState.Connected})
@@ -162,13 +165,21 @@ namespace JamBotDotNet.Modules
             }
 
             audioClient = Context.Guild.AudioClient;
+            audioService.audioClient = audioClient;
             
             var embed = new EmbedBuilder()
                 .WithTitle($"{videoMetadata.Author} - {videoMetadata.Title} - {videoMetadata.Id}")
                 .WithImageUrl(videoMetadata.Thumbnails.GetWithHighestResolution().Url);
             await ModifyOriginalResponseAsync(msg => msg.Embed = embed.Build());
+            
+            queueService.Enqueue(new QueueItem
+            {
+                Id = videoMetadata.Id,
+                videoMetadata = videoMetadata,
+                StreamInfo = streamInfo
+            });
 
-            _audioModule.TransmitAudioAsync(audioClient, audioStream);
+            await queueService.Next();
         }
     }
 }

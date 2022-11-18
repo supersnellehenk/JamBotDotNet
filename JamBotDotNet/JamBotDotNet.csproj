@@ -31,9 +31,6 @@
       <None Update="libsodium.dll">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
-      <None Update="Dire Straits - Dire Straits - 06 - Sultans of Swing.wav">
-        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-      </None>
     </ItemGroup>
 
 </Project>

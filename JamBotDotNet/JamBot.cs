@@ -101,7 +101,8 @@ namespace JamBotDotNet
                 .AddSingleton<CommandHandlingService>()
                 .AddSingleton<HttpClient>()
                 .AddSingleton<PictureService>()
-                .AddSingleton<AudioModule>()
+                .AddSingleton<AudioService>()
+                .AddSingleton<QueueService>()
                 .BuildServiceProvider();
         }
         

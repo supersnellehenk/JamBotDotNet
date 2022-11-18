@@ -1,16 +1,16 @@
 ﻿using CliWrap;
 using Discord.Audio;
+using JamBotDotNet.Models;
 
-namespace JamBotDotNet.Modules;
+namespace JamBotDotNet.Services;
 
-using ContextType = Discord.Commands.ContextType;
-
-public class AudioModule
+public class AudioService
 {
     private CancellationTokenSource? _cancellationTokenSource;
     private AudioOutStream? _audioOutStream;
-    
-    public async Task TransmitAudioAsync(IAudioClient client, Stream audioStream)
+    public IAudioClient audioClient { get; set; }
+    public bool isPlaying { get; set; } = false;
+    public async Task TransmitAudioAsync(Stream audioStream)
     {
         var memoryStream = new MemoryStream();
         await Cli.Wrap("ffmpeg")
@@ -20,9 +20,11 @@ public class AudioModule
             .ExecuteAsync();
 
         _cancellationTokenSource ??= new CancellationTokenSource();
-        _audioOutStream ??= client.CreatePCMStream(AudioApplication.Music);
+        _audioOutStream ??= audioClient.CreatePCMStream(AudioApplication.Music);
 
+        isPlaying = true;
         await _audioOutStream.WriteAsync(memoryStream.ToArray().AsMemory(0, (int)memoryStream.Length), _cancellationTokenSource.Token);
+        isPlaying = false;
     }
     
     public async Task StopTransmitting()

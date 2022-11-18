@@ -119,9 +119,9 @@ namespace JamBotDotNet.Modules
                 return;
             }
 
-            audioService.StopTransmitting();
             queueService.DequeueFirst();
             await RespondAsync("Stopped.");
+            audioService.StopTransmitting();
         }
 
         [SlashCommand("play", "Play a song from YouTube.", runMode: Discord.Interactions.RunMode.Async)]

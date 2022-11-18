@@ -12,11 +12,14 @@ public class QueueModule : InteractionModuleBase<SocketInteractionContext>
     [SlashCommand("queue", "Shows the current queue")]
     public async Task Queue()
     {
-        var queue = queueService.ToString();
+        var queue = queueService.ToString().Length != 0 ? queueService.ToString() : "Empty";
+        var nowPlaying = "Not playing";
 
-        if (queue.Length == 0)
+        if (queueService.CurrentlyPlayingItem != null)
         {
-            queue = "Empty";
+            var item = queueService.CurrentlyPlayingItem;
+            var amountPlayed = (item.videoMetadata?.Duration - (DateTime.Now - queueService.StartedPlaying) ?? new TimeSpan()).ToString("mm\\:ss");
+            nowPlaying = $"{item.videoMetadata?.Title} - (Left: {amountPlayed})\n";
         }
 
         var embed = new EmbedBuilder
@@ -25,7 +28,12 @@ public class QueueModule : InteractionModuleBase<SocketInteractionContext>
             {
                 new()
                 {
-                    Name = "Queue",
+                    Name = "Now playing:",
+                    Value = nowPlaying
+                },
+                new()
+                {
+                    Name = "Queue:",
                     Value = queue
                 }
             }
@@ -57,5 +65,12 @@ public class QueueModule : InteractionModuleBase<SocketInteractionContext>
             .WithImageUrl(playingItem.videoMetadata?.Thumbnails.GetWithHighestResolution().Url);
 
         await RespondAsync(embed: embed.Build());
+    }
+    
+    [SlashCommand("skip", "Skips the current song")]
+    public async Task Skip()
+    {
+        queueService.Skip();
+        await RespondAsync("Skipped");
     }
 }

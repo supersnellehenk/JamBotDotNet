@@ -32,5 +32,6 @@ public class AudioService
         _cancellationTokenSource?.Cancel();
         _cancellationTokenSource?.Dispose();
         _cancellationTokenSource = null;
+        isPlaying = false;
     }
 }

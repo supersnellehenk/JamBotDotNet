@@ -49,7 +49,10 @@ public class QueueService
 
     public void DequeueFirst()
     {
-        _queue.RemoveAt(0);
+        if (_queue.Count > 0)
+        {
+            _queue.RemoveAt(0);
+        }
     }
 
     public bool IsEmpty()
@@ -72,7 +75,7 @@ public class QueueService
         {
             DequeueFirst();
             CurrentlyPlayingItem = item;
-            StartedPlaying = new DateTime();
+            StartedPlaying = DateTime.Now;
             await AudioService.TransmitAudioAsync(audioStream);
         }
         finally
@@ -81,5 +84,10 @@ public class QueueService
             StartedPlaying = null;
             await Next();
         }
+    }
+
+    public async Task Skip()
+    {
+        AudioService.StopTransmitting();
     }
 }

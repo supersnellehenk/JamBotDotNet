@@ -25,14 +25,10 @@ public class AudioModule
         await _audioOutStream.WriteAsync(memoryStream.ToArray().AsMemory(0, (int)memoryStream.Length), _cancellationTokenSource.Token);
     }
     
-    public Task StopTransmitting()
+    public async Task StopTransmitting()
     {
         _cancellationTokenSource?.Cancel();
         _cancellationTokenSource?.Dispose();
         _cancellationTokenSource = null;
-        
-        _audioOutStream?.Dispose();
-        _audioOutStream = null;
-        return Task.CompletedTask;
     }
 }

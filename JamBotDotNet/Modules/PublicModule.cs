@@ -27,7 +27,7 @@ namespace JamBotDotNet.Modules
         
         private CancellationTokenSource? _cancellationTokenSource;
         
-        private AudioModule _audioModule { get; set; }
+        public AudioModule _audioModule { get; set; }
 
         [SlashCommand("ping", "Ping the bot.")]
         public async Task PingAsync()
@@ -168,7 +168,7 @@ namespace JamBotDotNet.Modules
                 .WithImageUrl(videoMetadata.Thumbnails.GetWithHighestResolution().Url);
             await ModifyOriginalResponseAsync(msg => msg.Embed = embed.Build());
 
-            await _audioModule.TransmitAudioAsync(audioClient, audioStream);
+            _audioModule.TransmitAudioAsync(audioClient, audioStream);
         }
     }
 }

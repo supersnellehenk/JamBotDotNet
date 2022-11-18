@@ -8,6 +8,7 @@ using Discord;
 using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
+using JamBotDotNet.Modules;
 using JamBotDotNet.Services;
 
 namespace JamBotDotNet
@@ -100,6 +101,7 @@ namespace JamBotDotNet
                 .AddSingleton<CommandHandlingService>()
                 .AddSingleton<HttpClient>()
                 .AddSingleton<PictureService>()
+                .AddSingleton<AudioModule>()
                 .BuildServiceProvider();
         }
         

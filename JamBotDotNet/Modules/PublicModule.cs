@@ -26,6 +26,8 @@ namespace JamBotDotNet.Modules
         private AudioOutStream? _audioOutStream;
         
         private CancellationTokenSource? _cancellationTokenSource;
+        
+        private AudioModule _audioModule { get; set; }
 
         [SlashCommand("ping", "Ping the bot.")]
         public async Task PingAsync()
@@ -114,15 +116,16 @@ namespace JamBotDotNet.Modules
                 return;
             }
 
-            _cancellationTokenSource?.Cancel();
+            _audioModule.StopTransmitting();
             await RespondAsync("Stopped.");
         }
 
         [SlashCommand("play", "Play a song from YouTube.", runMode: Discord.Interactions.RunMode.Async)]
         public async Task PlaySong([Remainder] string query)
         {
+            var adminId = Environment.GetEnvironmentVariable("ADMIN_ID") ?? "";
             // TODO: implement queue
-            if (Context.User is not IGuildUser guildUser || guildUser.VoiceChannel is null)
+            if (Context.User is not IGuildUser guildUser || guildUser.VoiceChannel is null && guildUser.Id != Convert.ToUInt64(adminId))
             {
                 await RespondAsync("You must be in a voice channel to use this command.", ephemeral: true);
                 return;
@@ -165,22 +168,7 @@ namespace JamBotDotNet.Modules
                 .WithImageUrl(videoMetadata.Thumbnails.GetWithHighestResolution().Url);
             await ModifyOriginalResponseAsync(msg => msg.Embed = embed.Build());
 
-            await TransmitAudioAsync(audioClient, audioStream);
-        }
-
-        private async Task TransmitAudioAsync(IAudioClient client, Stream audioStream)
-        {
-            var memoryStream = new MemoryStream();
-            await Cli.Wrap("ffmpeg")
-                .WithArguments(" -hide_banner -loglevel panic -i pipe:0 -ac 2 -f s16le -ar 48000 pipe:1")
-                .WithStandardInputPipe(PipeSource.FromStream(audioStream))
-                .WithStandardOutputPipe(PipeTarget.ToStream(memoryStream))
-                .ExecuteAsync();
-
-            _cancellationTokenSource ??= new CancellationTokenSource();
-            _audioOutStream ??= client.CreatePCMStream(AudioApplication.Music);
-
-            await _audioOutStream.WriteAsync(memoryStream.ToArray().AsMemory(0, (int)memoryStream.Length), _cancellationTokenSource.Token);
+            await _audioModule.TransmitAudioAsync(audioClient, audioStream);
         }
     }
 }
